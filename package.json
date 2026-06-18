@@ -1,0 +1,21 @@
+{
+    "name": "dnd-google-backend",
+    "version": "1.0.0",
+    "description": "Simple Express backend for Google Drive and Google Sheets API calls.",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js",
+        "dev": "nodemon index.js"
+    },
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "better-sqlite3": "^12.11.1",
+        "cors": "^2.8.6",
+        "dotenv": "^16.3.1",
+        "express": "^4.18.2",
+        "googleapis": "^121.0.0",
+        "multer": "^1.4.5-lts.1",
+        "nodemon": "^3.1.14"
+    }
+}
