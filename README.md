@@ -23,6 +23,31 @@ npm install
 npm start
 ```
 
+## Testing
+
+Tests run fully offline — no `.env` file or real Google/PostgreSQL credentials needed.
+
+**Run all tests:**
+```bash
+npm test
+```
+
+**Watch mode:**
+```bash
+npm run test:watch
+```
+
+**Coverage report:**
+```bash
+npm test -- --coverage
+```
+
+Tests live in `__tests__/`:
+- `routes.db.test.js` — covers all database CRUD routes (`/api/db/areas`, `/api/db/churches`)
+- `routes.google.test.js` — covers all Google API routes (`/auth`, `/oauth2callback`, `/api/drive/*`, `/api/spreadsheets/*`)
+
+External dependencies (`lib/db.js`, `lib/googleClient.js`, `googleapis`) are mocked via Jest module mocking so no real services are contacted. Each test file creates its own minimal Express app rather than importing `index.js`.
+
 ## Endpoints
 
 - `GET /api/drive/files`
