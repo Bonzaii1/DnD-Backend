@@ -4,10 +4,10 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-require('./lib/schema')
 
 const googleRoutes = require('./routes/google');
 const dbRoutes = require('./routes/db');
+const runMigrations = require('./lib/schema')
 
 const { PORT = 3000 } = process.env;
 
@@ -37,6 +37,13 @@ app.use((req, res) => {
     res.status(404).json({ error: 'Route not found' });
 });
 
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+
+runMigrations().then(() => {
+    app.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+    });
 });
+
+
+
+

@@ -4,6 +4,6 @@ dnd.db
 dnd.db-shm
 dnd.db-wal
 CLAUDE.md
-DB_SETUP_GUIDE.md
+SEQUELIZE_GUIDE.md
 JWT_AUTH_GUIDE.md
 queryFile.sql

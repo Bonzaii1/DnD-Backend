@@ -6,43 +6,57 @@ const router = express.Router();
 // DB routes go here
 
 // Area Routes
-router.get('/areas', (req, res) => {
-    const rows = db.prepare('SELECT * FROM Area ORDER BY id').all();
-    res.json(rows)
+router.get('/areas', async (req, res) => {
+
+    try {
+        const { rows } = await db.query('SELECT * FROM public."Area" ORDER BY id');
+        res.json(rows)
+    } catch (err) {
+        console.error(err)
+        res.status(500).json({ error: 'Database error', details: err.message })
+    }
 })
 
-router.get('/areas/:areaId', (req, res) => {
+router.get('/areas/:areaId', async (req, res) => {
     const areaId = req.params.areaId;
-
-    const row = db.prepare("SELECT * FROM Area WHERE id = ? order by id").all(areaId)
-
-    res.json(row)
+    try {
+        const { rows } = await db.query('SELECT * FROM public."Area" WHERE id = $1 ORDER BY id', [areaId])
+        res.json(rows[0])
+    } catch (err) {
+        console.error(err)
+        res.status(500).json({ error: 'Database error with method', details: err.message })
+    }
 })
 
 
 // Church Routes
-router.get('/churches', (req, res) => {
+router.get('/churches', async (req, res) => {
 
     const churchId = req.query.churchId
     const areaId = req.query.areaId
-
-    let rows = null
-
-    if (churchId && areaId) rows = db.prepare('SELECT * from Church WHERE id = ? AND areaId = ? ORDER BY id').all(churchId, areaId)
-    else if (churchId) rows = db.prepare('SELECT * from Church WHERE id = ? ORDER BY id').all(churchId)
-    else if (areaId) rows = db.prepare('SELECT * from Church WHERE areaId = ? ORDER BY id').all(areaId)
-    else rows = db.prepare('SELECT * FROM Church order by id').all()
-
-
-    res.json(rows)
+    try {
+        let result;
+        if (churchId && areaId) result = await db.query('SELECT * FROM public."Church" WHERE id = $1 AND "areaId" = $2 ORDER BY id', [churchId, areaId])
+        else if (churchId) result = await db.query('SELECT * FROM public."Church" WHERE id = $1 ORDER BY id', [churchId])
+        else if (areaId) result = await db.query('SELECT * FROM public."Church" WHERE "areaId" = $1 ORDER BY id', [areaId])
+        else result = await db.query('SELECT * FROM public."Church" ORDER BY id')
+        res.json(result.rows)
+    } catch (err) {
+        console.error(err)
+        res.status(500).json({ error: 'Database error', details: err.message })
+    }
 })
 
-router.get('/churches/:churchId', (req, res) => {
+router.get('/churches/:churchId', async (req, res) => {
     const churchId = req.params.churchId;
 
-    const row = db.prepare("SELECT * FROM Church WHERE id = ? order by id").all(churchId)
-
-    res.json(row)
+    try {
+        const { rows } = await db.query('SELECT * FROM public."Church" WHERE id = $1 ORDER BY id', [churchId])
+        res.json(rows[0])
+    } catch (err) {
+        console.error(err)
+        res.status(500).json({ error: 'Database error', details: err.message })
+    }
 })
 
 module.exports = router;
