@@ -141,6 +141,72 @@ router.post('/api/drive/upload', upload.single('file'), async (req, res) => {
     }
 });
 
+
+router.post('/api/drive/uploadPayload', upload.fields([
+    { name: 'recordCard', maxCount: 1 },
+    { name: 'entranceEssay', maxCount: 1 },
+    { name: 'notes', maxCount: 1 },
+    { name: 'recommendation', maxCount: 1 },
+]), async (req, res) => {
+    try {
+
+        const fname = req.body.fname;
+        const lname = req.body.lname
+
+        const filesObj = req.files // { recordCard: [...], entranceEssay: [...], ... }
+
+        let parentId = req.body.parentId || null;
+
+        if (req.body.folderPath) {
+            const createIfMissing = req.body.createIfMissing !== 'false';
+            parentId = await resolveFolderPath(req.body.folderPath, createIfMissing);
+        }
+
+        const allFiles = Object.entries(filesObj).flatMap(([fieldName, fileArr]) =>
+            fileArr.map(file => ({ fieldName, file }))
+        );
+
+        const uploads = await Promise.all(allFiles.map(async ({ fieldName, file }) => {
+            const ext = file.originalname.includes('.') ? '.' + file.originalname.split('.').pop() : '';
+            const renamedName = `${fieldName}_${fname}_${lname}${ext}`;
+            const media = { mimeType: file.mimetype, body: Readable.from(file.buffer) };
+
+            const searchQ = [
+                `name='${renamedName.replace(/'/g, "\\'")}'`,
+                `'${parentId || 'root'}' in parents`,
+                `trashed=false`,
+            ].join(' and ');
+            const existing = await drive.files.list({ q: searchQ, fields: 'files(id)', pageSize: 1 });
+            const existingId = existing.data.files[0]?.id;
+
+            let response;
+            if (existingId) {
+                response = await drive.files.update({
+                    fileId: existingId,
+                    resource: { name: renamedName },
+                    media,
+                    fields: 'id, name, mimeType, webViewLink, size',
+                });
+            } else {
+                const fileMetadata = { name: renamedName };
+                if (parentId) fileMetadata.parents = [parentId];
+                response = await drive.files.create({
+                    resource: fileMetadata,
+                    media,
+                    fields: 'id, name, mimeType, webViewLink, size',
+                });
+            }
+
+            return { fieldName, replaced: !!existingId, ...response.data };
+        }));
+        res.json({ message: 'Files uploaded successfully', files: uploads });
+    } catch (error) {
+        console.error('Drive upload error:', error);
+        res.status(500).json({ message: 'Failed to upload files', files: [], details: error.message });
+    }
+});
+
+
 router.get('/api/spreadsheets/:spreadsheetId/values', async (req, res) => {
     try {
         const { spreadsheetId } = req.params;
