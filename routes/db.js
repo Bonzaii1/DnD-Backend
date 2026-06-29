@@ -59,4 +59,53 @@ router.get('/churches/:churchId', async (req, res) => {
     }
 })
 
+
+
+router.get('/users', async (req, res) => {
+
+    const userId = req.params.userId
+
+    try {
+        if (userId) {
+            result = await db.query('SELECT * FROM public."User" WHERE id = $1', [userId])
+            res.json(result[0])
+        } else {
+            result = await db.query('SELECT * FROM public."User"')
+            res.json(result)
+        }
+
+    } catch (err) {
+        console.error(err)
+        res.status(500).json({ error: 'Database error', details: err.message })
+    }
+
+})
+
+router.post('/requirements', async (req, res) => {
+    const { userId, recordCard, entranceEssay, notes, recommendation } = req.body;
+
+    try {
+        const { rows } = await db.query(
+            `insert into public."Requirements"
+            ("recordCard", "entranceEssay", notes, recommendations, "userId")
+            values ($1, $2, $3, $4, $5)
+            on conflict ("userId") do update set
+                "recordCard" = GREATEST("Requirements"."recordCard", excluded."recordCard"),
+                "entranceEssay" = GREATEST("Requirements"."entranceEssay", excluded."entranceEssay"),
+                notes = GREATEST("Requirements".notes, excluded.notes),
+                recommendations = GREATEST("Requirements".recommendations, excluded.recommendations),
+                req_updated_at = NOW()
+            returning *`,
+            [recordCard, entranceEssay, notes, recommendation, userId]
+        )
+        res.status(201).json(rows[0]);
+    } catch (err) {
+        console.error(err)
+        res.status(500).json({ error: 'Database error', details: err.message })
+    }
+
+})
+
+
+
 module.exports = router;

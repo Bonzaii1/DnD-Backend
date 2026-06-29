@@ -7,6 +7,7 @@ dotenv.config();
 
 const googleRoutes = require('./routes/google');
 const dbRoutes = require('./routes/db');
+const userRoutes = require('./routes/dbUser')
 const runMigrations = require('./lib/schema')
 
 const { PORT = 3000 } = process.env;
@@ -32,6 +33,7 @@ app.get('/api', (req, res) => {
 
 app.use(googleRoutes);
 app.use('/api/db', dbRoutes);
+app.use('/api/user', userRoutes)
 
 app.use((req, res) => {
     res.status(404).json({ error: 'Route not found' });
