@@ -58,9 +58,9 @@ userRouter.post('/auth', async (req, res) => {
 
 
         } else {
-            const churchId = rows[0].churchId
-            const areaId = rows[0].areaId
             if (userExists) {
+                const churchId = rows[0].churchId
+                const areaId = rows[0].areaId
                 res.status(200).json({ result: "Success", fname: payload.given_name, lname: payload.family_name, churchId: churchId, areaId: areaId, email: payload.email, picture: payload.picture })
             } else {
                 res.status(409).json({ error: 'User does not exist please sign in with your sign in key' })
