@@ -23,7 +23,7 @@ userRouter.post('/auth', async (req, res) => {
         })
         const payload = ticket.getPayload()
         const { rows } = await db.query(
-            `select 1 from public."User" where google_sub = $1`,
+            `select "churchId", "areaId" from public."User" where google_sub = $1`,
             [payload.sub]
         )
         const userExists = rows.length > 0
@@ -38,6 +38,8 @@ userRouter.post('/auth', async (req, res) => {
             const churchId = rows_church[0].id
             const areaId = rows_church[0].areaId
 
+
+
             const role = 'Pathfinder'
             if (userExists) {
                 return res.status(409).json({ error: 'User already exists' })
@@ -50,15 +52,16 @@ userRouter.post('/auth', async (req, res) => {
                 )
 
 
-                res.status(200).json({ result: "Success", fname: payload.given_name, lname: payload.family_name, email: payload.email, picture: payload.picture })
+                res.status(200).json({ result: "Success", fname: payload.given_name, lname: payload.family_name, churchId: churchId, areaId: areaId, email: payload.email, picture: payload.picture })
             }
 
 
 
         } else {
-
+            const churchId = rows[0].churchId
+            const areaId = rows[0].areaId
             if (userExists) {
-                res.status(200).json({ result: "Success", fname: payload.given_name, lname: payload.family_name, email: payload.email, picture: payload.picture })
+                res.status(200).json({ result: "Success", fname: payload.given_name, lname: payload.family_name, churchId: churchId, areaId: areaId, email: payload.email, picture: payload.picture })
             } else {
                 res.status(409).json({ error: 'User does not exist please sign in with your sign in key' })
             }
