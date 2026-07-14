@@ -23,7 +23,7 @@ userRouter.post('/auth', async (req, res) => {
         })
         const payload = ticket.getPayload()
         const { rows } = await db.query(
-            `select "churchId", "areaId" from public."User" where google_sub = $1`,
+            `select "churchId", "areaId", phone_number, date_of_birth, active, prev_boot_camp_flag, prev_boot_camp_cert from public."User" where google_sub = $1`,
             [payload.sub]
         )
         const userExists = rows.length > 0
@@ -52,16 +52,15 @@ userRouter.post('/auth', async (req, res) => {
                 )
 
 
-                res.status(200).json({ result: "Success", fname: payload.given_name, lname: payload.family_name, churchId: churchId, areaId: areaId, email: payload.email, picture: payload.picture })
+                res.status(200).json({ result: "Success", fname: payload.given_name, lname: payload.family_name, churchId: churchId, areaId: areaId, email: payload.email, picture: payload.picture, google_sub: payload.sub })
             }
 
 
 
         } else {
             if (userExists) {
-                const churchId = rows[0].churchId
-                const areaId = rows[0].areaId
-                res.status(200).json({ result: "Success", fname: payload.given_name, lname: payload.family_name, churchId: churchId, areaId: areaId, email: payload.email, picture: payload.picture })
+                data = rows[0]
+                res.status(200).json({ result: "Success", fname: payload.given_name, lname: payload.family_name, churchId: data.churchId, areaId: data.areaId, email: payload.email, phone_number: data.phone_number, date_of_birth: data.date_of_birth, active: data.active, picture: payload.picture, bootcamp_flag: data.prev_boot_camp_flag, bootcamp_option: data.prev_boot_camp_cert, google_sub: payload.sub })
             } else {
                 res.status(409).json({ error: 'User does not exist please sign in with your sign in key' })
             }
@@ -76,6 +75,47 @@ userRouter.post('/auth', async (req, res) => {
     }
 
 })
+
+userRouter.post('/updateUser', async (req, res) => {
+
+    const { userObj } = req.body
+
+    if (!userObj) res.status(400).json({ error: 'Missing User Object' });
+
+    try
+
+    {
+        const { rows } = await db.query(
+            `select "churchId", "areaId" from public."User" where google_sub = $1`,
+            [userObj.google_sub]
+        )
+        const userExists = rows.length > 0
+
+        if (userExists){
+            const { rows } = await db.query(
+                        `UPDATE public."User"
+                        SET fname=$1, lname=$2, email=$3, phone_number=$4, date_of_birth=$5, prev_boot_camp_flag=$6, prev_boot_camp_cert=$7, active=$8
+                        WHERE google_sub = $9
+                        returning *;`,
+                        [userObj.firstName, userObj.lastName, userObj.email, userObj.phoneNumber, userObj.dateOfBirth, userObj.bootcamp_flag, userObj.bootcamp_option, 1, userObj.google_sub]
+                    )
+            data = rows[0]
+            res.status(200).json({ result: "Success", fname: data.fname, lname: data.lname, email: data.email, phone_number: data.phone_number, date_of_birth: data.date_of_birth,  churchId: data.churchId, areaId:data.areaId, picture: data.picture, active: data.active, bootcamp_flag: data.bootcamp_flag, bootcamp_option: data.bootcamp_option, google_sub: data.google_sub })
+        }else{
+            res.status(401).json({ error: 'Missing User Object' });
+        }
+    } catch (err) {
+        console.log(err)
+        res.status(500).json({ result: "There was an Internal Error", error_message: err })
+    }
+
+
+
+
+})
+
+
+
 
 module.exports = userRouter
 
