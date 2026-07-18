@@ -43,7 +43,7 @@ router.get('/churches', async (req, res) => {
         res.json(result.rows)
     } catch (err) {
         console.error(err)
-        res.status(500).json({ error: 'Database error', details: err.message })
+        res.status(500).json({ error: 'Database error: churches', details: err.message })
     }
 })
 
@@ -55,7 +55,7 @@ router.get('/churches/:churchId', async (req, res) => {
         res.json(rows[0])
     } catch (err) {
         console.error(err)
-        res.status(500).json({ error: 'Database error', details: err.message })
+        res.status(500).json({ error: 'Database error: churches/churchId', details: err.message })
     }
 })
 
@@ -76,10 +76,45 @@ router.get('/users', async (req, res) => {
 
     } catch (err) {
         console.error(err)
-        res.status(500).json({ error: 'Database error', details: err.message })
+        res.status(500).json({ error: 'Database error: users', details: err.message })
     }
 
 })
+
+
+router.get('/eventSeries', async (req, res) => {
+    try {
+        const { rows } = await db.query(`
+            SELECT 
+                e."id",
+                es."name" 
+            FROM public."EventSeries" es
+            LEFT JOIN public."Event" e 
+                ON e."eventSeriesId" = es."id"
+                AND e."occurrence_name" LIKE '%Unknown%'
+            WHERE es."active" = 1
+        `);
+        res.json(rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Database error: eventSeries', details: err.message });
+    }
+});
+
+router.get('/certificationTypes', async (req, res) => {
+    try {
+        const { rows } = await db.query(`
+            SELECT 
+                * 
+            FROM public."CertificationType" es
+            WHERE "active" = 1
+        `);
+        res.json(rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Database error: certificationTypes', details: err.message });
+    }
+});
 
 router.post('/requirements', async (req, res) => {
     const { userId, recordCard, entranceEssay, notes, recommendation } = req.body;
