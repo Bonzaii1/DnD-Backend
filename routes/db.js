@@ -116,6 +116,99 @@ router.get('/certificationTypes', async (req, res) => {
     }
 });
 
+router.post('/register', async(req, res) => {
+
+    const {pastEvents, certificationOption, userId, eventId} = req.body
+
+    if (!userId || !certificationOption) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    try {
+        // Verify user exists
+        const { rows: userRows } = await db.query(
+            `SELECT id FROM public."User" WHERE id = $1`,
+            [userId]
+        );
+
+        if (userRows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Register for the main event if eventId is provided
+        if (eventId) {
+            await db.query(`
+                INSERT INTO public."Registration"(
+                    "userId", "eventId")
+                VALUES ($1, $2)
+                ON CONFLICT ("userId", "eventId") DO NOTHING
+                returning *;
+            `,
+                [userId, eventId]);
+        }
+
+        // Register for past events (historical data - status and registered_at are NULL until verified)
+        if (pastEvents && pastEvents.length > 0) {
+            for (const eventSeriesId of pastEvents) {
+                await db.query(`
+                    INSERT INTO public."Registration"(
+                        "userId", "eventId", status, registered_at)
+                    VALUES ($1, $2, NULL, NULL)
+                    ON CONFLICT ("userId", "eventId") DO NOTHING
+                    returning *;
+                `,
+                    [userId, eventSeriesId]);
+            }
+        }
+
+        // Create user certification record
+        const { rows: certRows } = await db.query(`
+            INSERT INTO public."UserCertification"(
+                "userId", "certificationTypeId", "eventId")
+            VALUES ($1, $2, $3)
+            ON CONFLICT ("userId", "certificationTypeId") DO UPDATE 
+            SET "eventId" = EXCLUDED."eventId",
+                updated_at = NOW()
+            returning *;
+        `,
+            [userId, certificationOption, eventId]);
+
+        const userCertificationId = certRows[0].id;
+
+        // Get all requirements for this certification type
+        const { rows: requirements } = await db.query(`
+            SELECT id FROM public."CertificationRequirement"
+            WHERE "certificationTypeId" = $1
+            ORDER BY sort_order
+        `,
+            [certificationOption]);
+
+        // Create default UserRequirementStatus records for each requirement
+        for (const requirement of requirements) {
+            await db.query(`
+                INSERT INTO public."UserRequirementStatus"(
+                    "userCertificationId", "certificationRequirementId", status)
+                VALUES ($1, $2, 'not_started')
+                ON CONFLICT ("userCertificationId", "certificationRequirementId") DO NOTHING
+            `,
+                [userCertificationId, requirement.id]);
+        }
+
+        res.status(201).json({ 
+            success: true, 
+            certification: certRows[0],
+            requirementsCreated: requirements.length,
+            message: 'Registration successful' 
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Database error: register', details: err.message });
+    }
+
+})
+
+
 router.post('/requirements', async (req, res) => {
     const { userId, recordCard, entranceEssay, notes, recommendation } = req.body;
 
