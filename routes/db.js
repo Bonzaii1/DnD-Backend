@@ -234,6 +234,96 @@ router.post('/requirements', async (req, res) => {
 
 })
 
+// Get user's certification progress with requirements
+router.get('/certifications/progress/:userId', async (req, res) => {
+    const userId = parseInt(req.params.userId);
+
+    if (!userId) {
+        return res.status(400).json({ error: 'Missing userId' });
+    }
+
+    try {
+        // Get all certifications for the user
+        const { rows: certifications } = await db.query(`
+            SELECT 
+                uc.id,
+                uc."userId",
+                uc."certificationTypeId",
+                ct.name as "certificationTypeName",
+                uc."eventId",
+                e.occurrence_name as "eventName",
+                uc.status,
+                uc.started_at,
+                uc.completed_at,
+                uc.verified_at,
+                uc.notes
+            FROM public."UserCertification" uc
+            JOIN public."CertificationType" ct ON uc."certificationTypeId" = ct.id
+            LEFT JOIN public."Event" e ON uc."eventId" = e.id
+            WHERE uc."userId" = $1
+            ORDER BY uc.started_at DESC
+        `, [userId]);
+
+        // For each certification, get its requirements and status
+        const certificationsWithRequirements = await Promise.all(
+            certifications.map(async (cert) => {
+                const { rows: requirements } = await db.query(`
+                    SELECT 
+                        urs.id,
+                        urs."userCertificationId",
+                        urs."certificationRequirementId",
+                        urs.status,
+                        urs.submitted_at,
+                        urs.approved_at,
+                        urs.approved_by,
+                        urs.notes,
+                        urs.file_url,
+                        cr.id as "requirementId",
+                        cr.name as "requirementName",
+                        cr.description as "requirementDescription",
+                        cr.required as "requirementRequired",
+                        cr.sort_order as "requirementSortOrder"
+                    FROM public."UserRequirementStatus" urs
+                    JOIN public."CertificationRequirement" cr 
+                        ON urs."certificationRequirementId" = cr.id
+                    WHERE urs."userCertificationId" = $1
+                    ORDER BY cr.sort_order, cr.id
+                `, [cert.id]);
+
+                // Format requirements for frontend
+                const formattedRequirements = requirements.map(req => ({
+                    id: req.id,
+                    certificationRequirementId: req.certificationRequirementId,
+                    status: req.status,
+                    submitted_at: req.submitted_at,
+                    approved_at: req.approved_at,
+                    approved_by: req.approved_by,
+                    notes: req.notes,
+                    file_url: req.file_url,
+                    requirement: {
+                        id: req.requirementId,
+                        name: req.requirementName,
+                        description: req.requirementDescription,
+                        required: req.requirementRequired,
+                        sort_order: req.requirementSortOrder
+                    }
+                }));
+
+                return {
+                    ...cert,
+                    requirements: formattedRequirements
+                };
+            })
+        );
+
+        res.json(certificationsWithRequirements);
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Database error: certifications/progress', details: err.message });
+    }
+});
+
 
 
 module.exports = router;
