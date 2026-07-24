@@ -118,7 +118,7 @@ router.get('/certificationTypes', async (req, res) => {
 
 router.post('/register', async(req, res) => {
 
-    const {pastEvents, certificationOption, userId, eventId} = req.body
+    const {pastEvents, certificationOption, userId, eventId, year} = req.body
 
     if (!userId || !certificationOption) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -164,20 +164,20 @@ router.post('/register', async(req, res) => {
         // Create user certification record
         const { rows: certRows } = await db.query(`
             INSERT INTO public."UserCertification"(
-                "userId", "certificationTypeId", "eventId")
-            VALUES ($1, $2, $3)
+                "userId", "certificationTypeId", "eventId", year)
+            VALUES ($1, $2, $3, $4)
             ON CONFLICT ("userId", "certificationTypeId") DO UPDATE 
             SET "eventId" = EXCLUDED."eventId",
                 updated_at = NOW()
             returning *;
         `,
-            [userId, certificationOption, eventId]);
+            [userId, certificationOption, eventId, year]);
 
         const userCertificationId = certRows[0].id;
 
         // Get all requirements for this certification type
         const { rows: requirements } = await db.query(`
-            SELECT id FROM public."CertificationRequirement"
+            SELECT id, requirement_type FROM public."CertificationRequirement"
             WHERE "certificationTypeId" = $1
             ORDER BY sort_order
         `,
@@ -185,13 +185,14 @@ router.post('/register', async(req, res) => {
 
         // Create default UserRequirementStatus records for each requirement
         for (const requirement of requirements) {
+            const status = requirement.requirement_type === "AutoApprove" ? "approved" : "not_started" 
             await db.query(`
                 INSERT INTO public."UserRequirementStatus"(
-                    "userCertificationId", "certificationRequirementId", status)
-                VALUES ($1, $2, 'not_started')
+                    "userCertificationId", "certificationRequirementId", "status")
+                VALUES ($1, $2, $3)
                 ON CONFLICT ("userCertificationId", "certificationRequirementId") DO NOTHING
             `,
-                [userCertificationId, requirement.id]);
+                [userCertificationId, requirement.id, status]);
         }
 
         res.status(201).json({ 
@@ -256,6 +257,7 @@ router.get('/certifications/progress/:userId', async (req, res) => {
                 uc.started_at,
                 uc.completed_at,
                 uc.verified_at,
+                uc.year,
                 uc.notes
             FROM public."UserCertification" uc
             JOIN public."CertificationType" ct ON uc."certificationTypeId" = ct.id
@@ -282,7 +284,9 @@ router.get('/certifications/progress/:userId', async (req, res) => {
                         cr.name as "requirementName",
                         cr.description as "requirementDescription",
                         cr.required as "requirementRequired",
-                        cr.sort_order as "requirementSortOrder"
+                        cr.sort_order as "requirementSortOrder",
+                        cr.requirement_type as "requirementType",
+                        cr.required_for_reg as "requiredForRegistration"
                     FROM public."UserRequirementStatus" urs
                     JOIN public."CertificationRequirement" cr 
                         ON urs."certificationRequirementId" = cr.id
@@ -305,7 +309,9 @@ router.get('/certifications/progress/:userId', async (req, res) => {
                         name: req.requirementName,
                         description: req.requirementDescription,
                         required: req.requirementRequired,
-                        sort_order: req.requirementSortOrder
+                        sort_order: req.requirementSortOrder,
+                        requirement_type: req.requirementType,
+                        required_for_reg: req.requiredForRegistration
                     }
                 }));
 

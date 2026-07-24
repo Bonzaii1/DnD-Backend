@@ -128,6 +128,44 @@ userRouter.post('/updateUser', async (req, res) => {
 })
 
 
+userRouter.get('/isRegistered/:userId', async (req, res) => {
+
+    const userId = req.params.userId
+
+    if (!userId) return res.status(400).json({ error: 'Missing UserID' });
+
+    try{
+
+        const {rows: eventRows} = await db.query(`
+            select id from public."Event"
+            where active = 1
+            `)
+        
+        if (eventRows.length === 0) return res.status(400).json({ error: 'No active events up for Registration' });
+        
+        const eventId = eventRows[0].id
+
+        const {rows: registrationRows} = await db.query(`
+            SELECT status from public."Registration"
+            WHERE "userId" = $1 and "eventId" = $2
+            `, [userId, eventId])
+
+        const hasRecords = registrationRows.length > 0
+
+        if (hasRecords){
+            return res.status(200).json({ isRegistered: true});
+        }else{
+            return res.status(200).json({ isRegistered: false});
+        }
+    }catch (err) {
+        console.log(err)
+        res.status(500).json({ error: "Internal server error: isRegistered", error_message: err.message })
+    }
+
+})
+
+
+
 
 
 module.exports = userRouter
